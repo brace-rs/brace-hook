@@ -1,5 +1,11 @@
 use std::borrow::Borrow;
 
+use dyn_clone::DynClone;
+
+use self::registry::REGISTRY;
+
+pub use inventory;
+
 pub use self::error::Error;
 pub use self::registry::Registry;
 
@@ -14,7 +20,15 @@ where
     Hook::invoke(hook.borrow(), args)
 }
 
-pub trait Hook<A> {
+pub fn invoke_all<A, O>(name: &'static str, args: A) -> Result<Vec<O>, Error>
+where
+    A: Copy + 'static,
+    O: 'static,
+{
+    REGISTRY.invoke_all::<A, O>(name, args)
+}
+
+pub trait Hook<A>: DynClone {
     type Output;
 
     fn invoke(&self, args: A) -> Self::Output;
@@ -22,7 +36,7 @@ pub trait Hook<A> {
 
 impl<T, O> Hook<()> for T
 where
-    T: Fn() -> O,
+    T: Fn() -> O + Clone,
 {
     type Output = O;
 
@@ -40,7 +54,7 @@ macro_rules! tuple {
     ( $($name:ident,)+ ) => {
         impl<Func, Out, $($name,)+> Hook<($($name,)+)> for Func
         where
-            Func: Fn($($name,)+) -> Out,
+            Func: Fn($($name,)+) -> Out + Clone,
         {
             type Output = Out;
 
@@ -67,7 +81,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hook_invoke() {
+    fn test_invoke() {
         assert_eq!(
             invoke(my_hook, ("hello", "world")),
             String::from("my_hook (hello, world)")
@@ -80,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_invoke_all() {
-        let mut registry = Registry::default();
+        let mut registry = Registry::new();
 
         registry.insert("not_my_hook", my_hook);
         registry.insert("my_hook", my_hook);
