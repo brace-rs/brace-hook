@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
+brace-hook-macros = { path = "../brace-hook-macros" }
 dyn-clone = "1.0"
 inventory = "0.1"
 once_cell = "1.4"

@@ -4,6 +4,7 @@ use dyn_clone::DynClone;
 
 use self::registry::REGISTRY;
 
+pub use brace_hook_macros::hook;
 pub use inventory;
 
 pub use self::error::Error;
