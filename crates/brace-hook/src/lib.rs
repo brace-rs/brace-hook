@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-pub fn invoke<'a, T, B, A>(hook: B, args: A) -> T::Output
+pub fn invoke<T, B, A>(hook: B, args: A) -> T::Output
 where
     T: Hook<A>,
     B: Borrow<T>,
