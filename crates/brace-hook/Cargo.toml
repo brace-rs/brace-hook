@@ -6,3 +6,6 @@ description = "Hook discovery for dynamic codebases."
 repository = "https://github.com/brace-rs/brace-hook"
 license = "MIT OR Apache-2.0"
 edition = "2018"
+
+[dev-dependencies]
+paste = "0.1"
