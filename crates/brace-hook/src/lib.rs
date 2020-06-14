@@ -76,6 +76,7 @@ mod tests {
         () => ();
         ( $name:ident, $($rest:ident,)* ) => {
             paste::item! {
+                #[allow(clippy::too_many_arguments)]
                 fn [<my_hook $name>]($($rest: &'static str,)*) {}
 
                 #[test]
