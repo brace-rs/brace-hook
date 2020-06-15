@@ -26,3 +26,34 @@ fn test_static_discovery() {
     assert!(res.contains(&String::from("one: hello")));
     assert!(res.contains(&String::from("two: hello")));
 }
+
+#[hook(weight = 1000)]
+fn weighted() -> &'static str {
+    "0"
+}
+
+#[hook(name = "weighted", weight = 300)]
+fn weighted_a() -> &'static str {
+    "a"
+}
+
+#[hook(name = "weighted", weight = 0)]
+fn weighted_b() -> &'static str {
+    "b"
+}
+
+#[hook(name = "weighted", weight = 20)]
+fn weighted_c() -> &'static str {
+    "c"
+}
+
+#[test]
+fn test_static_discovery_weights() {
+    let res: Vec<&'static str> = invoke_all("weighted", ()).unwrap();
+
+    assert_eq!(res.len(), 4);
+    assert_eq!(res[0], "b");
+    assert_eq!(res[1], "c");
+    assert_eq!(res[2], "a");
+    assert_eq!(res[3], "0");
+}

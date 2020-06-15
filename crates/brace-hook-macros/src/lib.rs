@@ -1,28 +1,55 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::{parse_macro_input, Error, ItemFn, LitStr, Token};
+use syn::{parse_macro_input, Error, ItemFn, LitInt, LitStr, Token};
 
 mod kw {
     syn::custom_keyword!(name);
+    syn::custom_keyword!(weight);
 }
 
 struct Args {
     pub name: Option<LitStr>,
+    pub weight: Option<LitInt>,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.is_empty() {
-            return Ok(Args { name: None });
+            return Ok(Args {
+                name: None,
+                weight: None,
+            });
         }
 
-        input.parse::<kw::name>()?;
-        input.parse::<Token![=]>()?;
+        let mut name: Option<LitStr> = None;
+        let mut weight: Option<LitInt> = None;
 
-        let name: LitStr = input.parse()?;
+        if input.parse::<kw::name>().is_ok() {
+            input.parse::<Token![=]>()?;
 
-        Ok(Args { name: Some(name) })
+            name = Some(input.parse::<LitStr>()?);
+
+            if input.is_empty() {
+                return Ok(Args { name, weight });
+            }
+        }
+
+        if name.is_some() {
+            input.parse::<Token![,]>()?;
+        }
+
+        if input.parse::<kw::weight>().is_ok() {
+            input.parse::<Token![=]>()?;
+
+            weight = Some(input.parse::<LitInt>()?);
+
+            if input.is_empty() {
+                return Ok(Args { name, weight });
+            }
+        }
+
+        Ok(Args { name, weight })
     }
 }
 
@@ -50,9 +77,16 @@ pub fn hook(args: TokenStream, input: TokenStream) -> TokenStream {
         },
     };
 
-    TokenStream::from(quote! {
-        #input
+    match args.weight {
+        Some(weight) => TokenStream::from(quote! {
+            #input
 
-        brace_hook::register! { #name, #method }
-    })
+            brace_hook::register! { #name, #method, #weight }
+        }),
+        None => TokenStream::from(quote! {
+            #input
+
+            brace_hook::register! { #name, #method }
+        }),
+    }
 }

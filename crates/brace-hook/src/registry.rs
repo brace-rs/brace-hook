@@ -28,13 +28,27 @@ impl Registry {
             .entry((name, TypeId::of::<A>(), TypeId::of::<O>()))
             .or_insert_with(Entry::default);
 
-        entry.insert(hook);
+        entry.insert(hook, 0);
+    }
+
+    pub fn insert_at<T, A, O>(&mut self, name: &'static str, hook: T, weight: i32)
+    where
+        T: Hook<A, Output = O> + Send + Sync + 'static,
+        A: 'static,
+        O: 'static,
+    {
+        let entry = self
+            .0
+            .entry((name, TypeId::of::<A>(), TypeId::of::<O>()))
+            .or_insert_with(Entry::default);
+
+        entry.insert(hook, weight);
     }
 
     pub fn insert_record(&mut self, record: Record) {
         let entry = self.0.entry(record.0).or_insert_with(Entry::default);
 
-        entry.insert_item(record.1);
+        entry.insert_item(record.1, record.2);
     }
 
     pub fn invoke_all<A, O>(&self, name: &'static str, args: A) -> Result<Vec<O>, Error>
@@ -64,24 +78,24 @@ impl Default for Registry {
     }
 }
 
-pub struct Entry(Vec<Box<dyn MyAny>>);
+pub struct Entry(Vec<(Box<dyn MyAny>, i32)>);
 
 impl Entry {
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub fn insert<T, A, O>(&mut self, hook: T)
+    pub fn insert<T, A, O>(&mut self, hook: T, weight: i32)
     where
         T: Hook<A, Output = O> + Send + Sync + 'static,
         A: 'static,
         O: 'static,
     {
-        self.0.push(Box::new(Anon::new(hook)))
+        self.0.push((Box::new(Anon::new(hook)), weight))
     }
 
-    pub fn insert_item(&mut self, item: Box<dyn MyAny>) {
-        self.0.push(item)
+    pub fn insert_item(&mut self, item: Box<dyn MyAny>, weight: i32) {
+        self.0.push((item, weight))
     }
 
     pub fn invoke_all<A, O>(&self, args: A) -> Vec<O>
@@ -90,9 +104,12 @@ impl Entry {
         O: 'static,
     {
         let mut out = Vec::new();
+        let mut items = self.0.to_vec();
 
-        for item in &self.0 {
-            if let Some(hook) = item.as_any().downcast_ref::<Anon<A, O>>() {
+        items.sort_by_key(|item| item.1);
+
+        for item in items {
+            if let Some(hook) = item.0.as_any().downcast_ref::<Anon<A, O>>() {
                 out.push(hook.invoke(args));
             }
         }
@@ -148,10 +165,10 @@ where
 }
 
 #[derive(Clone)]
-pub struct Record((&'static str, TypeId, TypeId), Box<dyn MyAny>);
+pub struct Record((&'static str, TypeId, TypeId), Box<dyn MyAny>, i32);
 
 impl Record {
-    pub fn new<T, A>(name: &'static str, hook: T) -> Self
+    pub fn new<T, A>(name: &'static str, hook: T, weight: i32) -> Self
     where
         T: Hook<A> + Send + Sync + 'static,
         A: 'static,
@@ -159,6 +176,7 @@ impl Record {
         Self(
             (name, TypeId::of::<A>(), TypeId::of::<T::Output>()),
             Box::new(Anon::new(hook)),
+            weight,
         )
     }
 }
@@ -170,7 +188,13 @@ macro_rules! register {
     ( $name:tt, $hook:path ) => {
         $crate::inventory::submit! {
             #![crate = brace_hook]
-            $crate::registry::Record::new($name, $hook)
+            $crate::registry::Record::new($name, $hook, 0)
+        }
+    };
+    ( $name:tt, $hook:path, $weight:expr ) => {
+        $crate::inventory::submit! {
+            #![crate = brace_hook]
+            $crate::registry::Record::new($name, $hook, $weight)
         }
     };
 }
