@@ -1,59 +1,154 @@
-use brace_hook::{hook, invoke_all, register};
+use brace_hook::{hook, register};
 
 #[hook]
-fn my_hook(input: &str) -> String {
-    format!("zero: {}", input)
-}
+fn my_hook(input: &str) -> String;
 
-#[hook(name = "my_hook")]
+#[hook(my_hook)]
 fn hook_1(input: &str) -> String {
-    format!("one: {}", input)
+    format!("hook_1: {}", input)
 }
 
 fn hook_2(input: &str) -> String {
-    format!("two: {}", input)
+    format!("hook_2: {}", input)
 }
 
-register!("my_hook", hook_2);
+fn hook_3(input: &str) -> String {
+    format!("hook_3: {}", input)
+}
+
+register!(my_hook, hook_2);
+register!(my_hook, hook_3, 0);
 
 #[test]
-fn test_static_discovery() {
-    let res: Vec<String> = invoke_all("my_hook", ("hello",)).unwrap();
+fn test_hook_registration() {
+    let res: Vec<String> = my_hook::invoke("hello");
 
     assert_eq!(res.len(), 3);
 
-    assert!(res.contains(&String::from("zero: hello")));
-    assert!(res.contains(&String::from("one: hello")));
-    assert!(res.contains(&String::from("two: hello")));
+    assert!(res.contains(&String::from("hook_1: hello")));
+    assert!(res.contains(&String::from("hook_2: hello")));
+    assert!(res.contains(&String::from("hook_3: hello")));
 }
 
-#[hook(weight = 1000)]
-fn weighted() -> &'static str {
-    "0"
+#[hook]
+fn empty();
+
+#[hook(empty)]
+fn empty_1() {}
+
+#[test]
+fn test_hook_without_args() {
+    assert_eq!(empty::invoke().len(), 1);
 }
 
-#[hook(name = "weighted", weight = 300)]
+#[hook]
+fn unused();
+
+#[test]
+fn test_hook_without_impls() {
+    assert_eq!(unused::invoke().len(), 0);
+}
+
+#[hook]
+fn weighted() -> &'static str;
+
+#[hook(weighted, 300)]
 fn weighted_a() -> &'static str {
     "a"
 }
 
-#[hook(name = "weighted", weight = 0)]
+#[hook(weighted, 0)]
 fn weighted_b() -> &'static str {
     "b"
 }
 
-#[hook(name = "weighted", weight = 20)]
+#[hook(weighted, 20)]
 fn weighted_c() -> &'static str {
     "c"
 }
 
+#[hook(weighted, -50)]
+fn weighted_d() -> &'static str {
+    "d"
+}
+
 #[test]
-fn test_static_discovery_weights() {
-    let res: Vec<&'static str> = invoke_all("weighted", ()).unwrap();
+fn test_hook_with_weights() {
+    let res: Vec<&'static str> = weighted::invoke();
 
     assert_eq!(res.len(), 4);
-    assert_eq!(res[0], "b");
-    assert_eq!(res[1], "c");
-    assert_eq!(res[2], "a");
-    assert_eq!(res[3], "0");
+    assert_eq!(res[0], "d");
+    assert_eq!(res[1], "b");
+    assert_eq!(res[2], "c");
+    assert_eq!(res[3], "a");
+}
+
+#[hook]
+fn mutate(items: &mut Vec<&str>);
+
+#[hook(mutate, 1)]
+fn mutate_1(items: &mut Vec<&str>) {
+    items.push("mutate 1");
+}
+
+#[hook(mutate, 2)]
+fn mutate_2(items: &mut Vec<&str>) {
+    items.push("mutate 2");
+}
+
+#[hook(mutate, 3)]
+fn mutate_3(items: &mut Vec<&str>) {
+    items.push("mutate 3");
+}
+
+#[test]
+fn test_hook_with_mutations() {
+    let mut items = Vec::new();
+
+    let res = mutate::invoke(&mut items);
+
+    assert_eq!(res.len(), 3);
+    assert_eq!(items.len(), 3);
+
+    assert_eq!(items[0], "mutate 1");
+    assert_eq!(items[1], "mutate 2");
+    assert_eq!(items[2], "mutate 3");
+}
+
+mod custom {
+    pub mod path {
+        pub use brace_hook::*;
+    }
+}
+
+#[hook]
+#[hook_attr(crate = custom::path)]
+fn relocate();
+
+#[hook(relocate, 1)]
+#[hook_attr(crate = custom::path)]
+fn relocated() {}
+
+#[test]
+fn test_crate_location() {
+    assert_eq!(relocate::invoke().len(), 1);
+}
+
+mod nested {
+    use super::hook;
+
+    #[hook]
+    #[rustfmt::skip]
+    pub fn visibility();
+
+    #[hook(visibility, 1)]
+    fn visible_1() {}
+
+    #[hook(visibility, 1)]
+    pub fn visible_2() {}
+}
+
+#[test]
+fn test_hook_visibility() {
+    assert_eq!(nested::visibility::invoke().len(), 2);
 }
