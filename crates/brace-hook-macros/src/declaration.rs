@@ -4,8 +4,8 @@ use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
 use syn::token::Paren;
 use syn::{
-    parenthesized, Attribute, BareFnArg, FnArg, Ident, Pat, ReturnType, Token, Type, TypeTuple,
-    Visibility,
+    braced, parenthesized, Attribute, BareFnArg, Block, FnArg, Ident, Pat, ReturnType, Token, Type,
+    TypeTuple, Visibility,
 };
 
 pub fn expand(mut input: HookFnSignature) -> TokenStream {
@@ -30,6 +30,24 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
     let output = input.output;
     let name = input.ident;
 
+    let body = match input.block {
+        Some(_) => quote! {
+            if hooks.len() == 0 {
+                out.push(Self::default(#arg_names));
+
+                return out;
+            }
+        },
+        None => quote!(),
+    };
+
+    let default = match input.block {
+        Some(block) => quote! {
+            fn default(#args) -> #ret #block
+        },
+        None => quote!(),
+    };
+
     quote! {
         #[allow(non_camel_case_types)]
         #vis struct #name(Box<dyn Fn(#arg_types) #output>, i32);
@@ -48,6 +66,8 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
                     .into_iter()
                     .collect();
 
+                #body
+
                 hooks.sort_by_key(|hook| hook.1);
 
                 for hook in hooks {
@@ -56,6 +76,8 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
 
                 out
             }
+
+            #default
         }
 
         #krate::inventory::collect!(#name);
@@ -70,6 +92,7 @@ pub struct HookFnSignature {
     pub paren_token: Paren,
     pub inputs: Punctuated<FnArg, Token![,]>,
     pub output: ReturnType,
+    pub block: Option<Block>,
 }
 
 impl HookFnSignature {
@@ -167,7 +190,16 @@ impl Parse for HookFnSignature {
 
         let output: ReturnType = input.parse()?;
 
-        input.parse::<Token![;]>()?;
+        let content;
+        let brace_token = braced!(content in input);
+
+        let block = if content.is_empty() {
+            None
+        } else {
+            let stmts = content.call(Block::parse_within)?;
+
+            Some(Block { brace_token, stmts })
+        };
 
         Ok(Self {
             attrs,
@@ -177,6 +209,7 @@ impl Parse for HookFnSignature {
             paren_token,
             inputs,
             output,
+            block,
         })
     }
 }

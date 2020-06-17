@@ -1,7 +1,7 @@
 use brace_hook::{hook, register};
 
 #[hook]
-fn my_hook(input: &str) -> String;
+fn my_hook(input: &str) -> String {}
 
 #[hook(my_hook)]
 fn hook_1(input: &str) -> String {
@@ -31,7 +31,7 @@ fn test_hook_registration() {
 }
 
 #[hook]
-fn empty();
+fn empty() {}
 
 #[hook(empty)]
 fn empty_1() {}
@@ -42,7 +42,7 @@ fn test_hook_without_args() {
 }
 
 #[hook]
-fn unused();
+fn unused() {}
 
 #[test]
 fn test_hook_without_impls() {
@@ -50,7 +50,7 @@ fn test_hook_without_impls() {
 }
 
 #[hook]
-fn weighted() -> &'static str;
+fn weighted() -> &'static str {}
 
 #[hook(weighted, 300)]
 fn weighted_a() -> &'static str {
@@ -84,7 +84,7 @@ fn test_hook_with_weights() {
 }
 
 #[hook]
-fn mutate(items: &mut Vec<&str>);
+fn mutate(items: &mut Vec<&str>) {}
 
 #[hook(mutate, 1)]
 fn mutate_1(items: &mut Vec<&str>) {
@@ -123,7 +123,7 @@ mod custom {
 
 #[hook]
 #[hook_attr(crate = custom::path)]
-fn relocate();
+fn relocate() {}
 
 #[hook(relocate, 1)]
 #[hook_attr(crate = custom::path)]
@@ -138,8 +138,7 @@ mod nested {
     use super::hook;
 
     #[hook]
-    #[rustfmt::skip]
-    pub fn visibility();
+    pub fn visibility() {}
 
     #[hook(visibility, 1)]
     fn visible_1() {}
@@ -151,4 +150,35 @@ mod nested {
 #[test]
 fn test_hook_visibility() {
     assert_eq!(nested::visibility::invoke().len(), 2);
+}
+
+#[hook]
+fn hook_with_default(a: &str, b: &str) -> String {
+    format!("a: {}, b: {}", a, b)
+}
+
+#[test]
+fn test_hook_with_default() {
+    let res = hook_with_default::invoke("one", "two");
+
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0], "a: one, b: two");
+}
+
+#[hook]
+fn hook_with_default_unused(a: &str, b: &str) -> String {
+    format!("a: {}, b: {}", a, b)
+}
+
+#[hook(hook_with_default_unused)]
+fn hook_with_default_unused_1(a: &str, b: &str) -> String {
+    format!("b: {}, a: {}", b, a)
+}
+
+#[test]
+fn test_hook_with_default_unused() {
+    let res = hook_with_default_unused::invoke("one", "two");
+
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0], "b: two, a: one");
 }
