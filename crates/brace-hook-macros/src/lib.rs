@@ -6,6 +6,7 @@ use self::args::Args;
 mod args;
 mod attr;
 mod declaration;
+mod lifetime;
 mod registration;
 mod signature;
 
