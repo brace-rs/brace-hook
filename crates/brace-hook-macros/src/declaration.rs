@@ -43,6 +43,7 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
 
     let default = match input.block {
         Some(block) => quote! {
+            #[allow(unused_variables)]
             fn default(#args) -> #ret #block
         },
         None => quote!(),
