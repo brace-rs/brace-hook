@@ -1,7 +1,8 @@
 use syn::parse::{Error, ParseStream, Result};
 use syn::{parse_quote, Attribute, Path, Token};
 
-// #[hook_attr(crate = path::to::brace_hook)]
+// #[hook_attr(crate = brace_hook_crate)]
+// See https://github.com/dtolnay/inventory/issues/10
 pub fn crate_path(attrs: &mut Vec<Attribute>) -> Result<Path> {
     let mut path = None;
     let mut errors: Option<Error> = None;

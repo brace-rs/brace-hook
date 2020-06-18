@@ -116,17 +116,15 @@ fn test_hook_with_mutations() {
 }
 
 mod custom {
-    pub mod path {
-        pub use brace_hook::*;
-    }
+    pub use brace_hook::*;
 }
 
 #[hook]
-#[hook_attr(crate = custom::path)]
+#[hook_attr(crate = custom)]
 fn relocate() {}
 
 #[hook(relocate, 1)]
-#[hook_attr(crate = custom::path)]
+#[hook_attr(crate = custom)]
 fn relocated() {}
 
 #[test]

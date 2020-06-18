@@ -12,6 +12,9 @@ pub fn expand(path: Path, weight: LitInt, mut input: ItemFn) -> TokenStream {
     quote::quote! {
         #input
 
-        #krate::register!(#path, #name, #weight);
+        #krate::inventory::submit! {
+            #![crate = #krate]
+            #path::new(#name, #weight)
+        }
     }
 }
