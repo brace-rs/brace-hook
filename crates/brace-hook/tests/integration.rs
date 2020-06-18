@@ -21,9 +21,11 @@ register!(my_hook, hook_3, 0);
 
 #[test]
 fn test_hook_registration() {
-    let res: Vec<String> = my_hook::invoke("hello");
+    let res = my_hook::with("hello");
 
     assert_eq!(res.len(), 3);
+
+    let res: Vec<String> = res.collect();
 
     assert!(res.contains(&String::from("hook_1: hello")));
     assert!(res.contains(&String::from("hook_2: hello")));
@@ -38,7 +40,7 @@ fn empty_1() {}
 
 #[test]
 fn test_hook_without_args() {
-    assert_eq!(empty::invoke().len(), 1);
+    assert_eq!(empty::with().len(), 1);
 }
 
 #[hook]
@@ -46,7 +48,7 @@ fn unused() {}
 
 #[test]
 fn test_hook_without_impls() {
-    assert_eq!(unused::invoke().len(), 0);
+    assert_eq!(unused::with().len(), 0);
 }
 
 #[hook]
@@ -74,13 +76,15 @@ fn weighted_d() -> &'static str {
 
 #[test]
 fn test_hook_with_weights() {
-    let res: Vec<&'static str> = weighted::invoke();
+    let mut res = weighted::with();
 
     assert_eq!(res.len(), 4);
-    assert_eq!(res[0], "d");
-    assert_eq!(res[1], "b");
-    assert_eq!(res[2], "c");
-    assert_eq!(res[3], "a");
+
+    assert_eq!(res.next(), Some("d"));
+    assert_eq!(res.next(), Some("b"));
+    assert_eq!(res.next(), Some("c"));
+    assert_eq!(res.next(), Some("a"));
+    assert_eq!(res.next(), None);
 }
 
 #[hook]
@@ -105,9 +109,12 @@ fn mutate_3(items: &mut Vec<&str>) {
 fn test_hook_with_mutations() {
     let mut items = Vec::new();
 
-    let res = mutate::invoke(&mut items);
+    let res = mutate::with(&mut items);
 
     assert_eq!(res.len(), 3);
+
+    res.for_each(drop);
+
     assert_eq!(items.len(), 3);
 
     assert_eq!(items[0], "mutate 1");
@@ -129,7 +136,7 @@ fn relocated() {}
 
 #[test]
 fn test_crate_location() {
-    assert_eq!(relocate::invoke().len(), 1);
+    assert_eq!(relocate::with().len(), 1);
 }
 
 mod nested {
@@ -147,7 +154,7 @@ mod nested {
 
 #[test]
 fn test_hook_visibility() {
-    assert_eq!(nested::visibility::invoke().len(), 2);
+    assert_eq!(nested::visibility::with().len(), 2);
 }
 
 #[hook]
@@ -157,9 +164,12 @@ fn hook_with_default(a: &str, b: &str) -> String {
 
 #[test]
 fn test_hook_with_default() {
-    let res = hook_with_default::invoke("one", "two");
+    let res = hook_with_default::with("one", "two");
 
     assert_eq!(res.len(), 1);
+
+    let res: Vec<String> = res.collect();
+
     assert_eq!(res[0], "a: one, b: two");
 }
 
@@ -175,8 +185,11 @@ fn hook_with_default_unused_1(a: &str, b: &str) -> String {
 
 #[test]
 fn test_hook_with_default_unused() {
-    let res = hook_with_default_unused::invoke("one", "two");
+    let res = hook_with_default_unused::with("one", "two");
 
     assert_eq!(res.len(), 1);
+
+    let res: Vec<String> = res.collect();
+
     assert_eq!(res[0], "b: two, a: one");
 }
