@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 
 use crate::signature::HookFnSignature;
 
@@ -24,45 +24,46 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
     let args = input.inputs;
     let output = input.output;
     let name = input.ident;
-
-    let body = match input.block {
-        Some(_) => quote! {
-            if hooks.len() == 0 {
-                out.push(Self::default(#arg_names));
-
-                return out;
-            }
-        },
-        None => quote!(),
-    };
+    let default_name = format_ident!("{}__default", name);
 
     let default = match input.block {
         Some(block) => quote! {
-            #[allow(unused_variables)]
-            fn default(#args) -> #ret #block
+            #[allow(unused_variables, non_snake_case)]
+            fn #default_name(#args) -> #ret #block
+
+            #krate::inventory::submit! {
+                #![crate = #krate]
+                #name::new(#default_name, 0, true)
+            }
         },
         None => quote!(),
     };
 
     quote! {
         #[allow(non_camel_case_types)]
-        #vis struct #name(Box<dyn Fn(#arg_types) #output>, i32);
+        #vis struct #name(Box<dyn Fn(#arg_types) #output>, i32, bool);
 
         impl #name {
-            pub fn new<T>(hook: T, weight: i32) -> Self
+            pub fn new<T>(hook: T, weight: i32, default: bool) -> Self
             where
                 T: Fn(#arg_types) #output + 'static,
             {
-                Self(Box::new(hook), weight)
+                Self(Box::new(hook), weight, default)
             }
 
             pub fn invoke(#args) -> Vec<#ret> {
                 let mut out = Vec::new();
                 let mut hooks: Vec<&'static #name> = #krate::inventory::iter::<#name>
                     .into_iter()
+                    .filter(|hook| !hook.2)
                     .collect();
 
-                #body
+                if hooks.is_empty() {
+                    hooks = #krate::inventory::iter::<#name>
+                        .into_iter()
+                        .filter(|hook| hook.2)
+                        .collect();
+                }
 
                 hooks.sort_by_key(|hook| hook.1);
 
@@ -72,10 +73,10 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
 
                 out
             }
-
-            #default
         }
 
         #krate::inventory::collect!(#name);
+
+        #default
     }
 }
