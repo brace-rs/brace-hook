@@ -14,9 +14,9 @@ where
     Result::from_iter(iter)
 }
 
-pub fn exec<T>(iter: T)
+pub fn exec<I>(iter: I)
 where
-    T: Iterator,
+    I: Iterator,
 {
     iter.for_each(drop);
 }
