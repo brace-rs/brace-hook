@@ -1,10 +1,13 @@
+use std::iter::FromIterator;
+
+use quote::quote;
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
-use syn::token::Paren;
+use syn::token::{Comma, Paren};
 use syn::visit_mut::VisitMut;
 use syn::{
-    braced, parenthesized, Attribute, BareFnArg, Block, FnArg, Generics, Ident, Pat, ReturnType,
-    Token, Type, TypeTuple, Visibility,
+    braced, parenthesized, Attribute, BareFnArg, Block, Expr, ExprTuple, FnArg, Generics, Ident,
+    Index, Pat, ReturnType, Token, Type, TypeTuple, Visibility,
 };
 
 use crate::lifetime::Lifetimes;
@@ -39,6 +42,20 @@ impl HookFnSignature {
         }
 
         Ok(args)
+    }
+
+    pub fn arg_names_tuple(&self) -> Result<Expr> {
+        let args = self.arg_names()?;
+
+        Ok(Expr::Tuple(ExprTuple {
+            attrs: Vec::new(),
+            paren_token: Paren::default(),
+            elems: Punctuated::from_iter(args.iter().map(|arg| {
+                Expr::Verbatim(quote! {
+                    #arg
+                })
+            })),
+        }))
     }
 
     pub fn arg_types(&self) -> Result<Punctuated<BareFnArg, Token![,]>> {
@@ -85,6 +102,41 @@ impl HookFnSignature {
         }
 
         Ok(lifetimes.generics())
+    }
+
+    pub fn iter_arg_names(&self) -> Punctuated<Pat, Token![,]> {
+        let mut args = Punctuated::new();
+
+        for (pos, _) in self.inputs.iter().enumerate() {
+            let index = Index::from(pos);
+
+            args.push(Pat::Verbatim(quote! {
+                self.args.#index
+            }))
+        }
+
+        args
+    }
+
+    pub fn iter_arg_types(&self) -> Result<Type> {
+        let mut args = self.arg_types()?;
+        let mut elems = Punctuated::new();
+        let mut lifetimes = Lifetimes::new("'life");
+
+        for arg in args.iter_mut() {
+            lifetimes.visit_type_mut(&mut arg.ty);
+
+            elems.push(arg.ty.clone());
+        }
+
+        if !elems.is_empty() {
+            elems.push_punct(Comma::default())
+        }
+
+        Ok(Type::Tuple(TypeTuple {
+            paren_token: Paren::default(),
+            elems,
+        }))
     }
 
     pub fn returns(&self) -> Type {

@@ -9,7 +9,7 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
         Err(err) => return err.to_compile_error(),
     };
 
-    let arg_names = match input.arg_names() {
+    let arg_names_tuple = match input.arg_names_tuple() {
         Ok(res) => res,
         Err(err) => return err.to_compile_error(),
     };
@@ -29,12 +29,20 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
         Err(err) => return err.to_compile_error(),
     };
 
+    let iter_arg_types = match input.iter_arg_types() {
+        Ok(res) => res,
+        Err(err) => return err.to_compile_error(),
+    };
+
+    let iter_arg_names = input.iter_arg_names();
+
     let ret = input.returns();
     let vis = input.vis;
     let args = input.inputs;
     let output = input.output;
     let name = input.ident;
     let default_name = format_ident!("{}__default", name);
+    let iter_name = format_ident!("{}__iter", name);
 
     let default = match input.block {
         Some(block) => quote! {
@@ -61,8 +69,7 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
                 Self(Box::new(hook), weight, default)
             }
 
-            pub fn invoke #lifetimes (#args_lifetimes) -> Vec<#ret> {
-                let mut out = Vec::new();
+            pub fn with #lifetimes (#args_lifetimes) -> #iter_name #lifetimes {
                 let mut hooks: Vec<&'static #name> = #krate::inventory::iter::<#name>
                     .into_iter()
                     .filter(|hook| !hook.2)
@@ -77,13 +84,46 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
 
                 hooks.sort_by_key(|hook| hook.1);
 
-                for hook in hooks {
-                    out.push(hook.0(#arg_names));
+                #iter_name {
+                    args: #arg_names_tuple,
+                    hooks: hooks.into_iter(),
                 }
-
-                out
             }
         }
+
+        #[allow(non_camel_case_types)]
+        #vis struct #iter_name #lifetimes {
+            args: #iter_arg_types,
+            hooks: std::vec::IntoIter<&'static #name>,
+        }
+
+        impl #lifetimes std::iter::Iterator for #iter_name #lifetimes {
+            type Item = #ret;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self.hooks.next() {
+                    Some(hook) => Some(hook.0(#iter_arg_names)),
+                    None => None,
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                self.hooks.size_hint()
+            }
+        }
+
+        impl #lifetimes std::iter::DoubleEndedIterator for #iter_name #lifetimes {
+            fn next_back(&mut self) -> Option<Self::Item> {
+                match self.hooks.next_back() {
+                    Some(hook) => Some(hook.0(#iter_arg_names)),
+                    None => None,
+                }
+            }
+        }
+
+        impl #lifetimes std::iter::ExactSizeIterator for #iter_name #lifetimes {}
+
+        impl #lifetimes std::iter::FusedIterator for #iter_name #lifetimes {}
 
         impl #krate::inventory::Collect for #name {
             #[inline]
