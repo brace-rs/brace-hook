@@ -75,7 +75,13 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
             }
         }
 
-        #krate::inventory::collect!(#name);
+        impl #krate::inventory::Collect for #name {
+            #[inline]
+            fn registry() -> &'static #krate::inventory::Registry<Self> {
+                static REGISTRY: #krate::inventory::Registry<#name> = #krate::inventory::Registry::new();
+                &REGISTRY
+            }
+        }
 
         #default
     }
