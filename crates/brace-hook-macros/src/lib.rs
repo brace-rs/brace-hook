@@ -7,6 +7,7 @@ mod args;
 mod attr;
 mod declaration;
 mod registration;
+mod signature;
 
 #[proc_macro_attribute]
 pub fn hook(args: TokenStream, input: TokenStream) -> TokenStream {
