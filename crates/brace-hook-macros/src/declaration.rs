@@ -19,6 +19,16 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
         Err(err) => return err.to_compile_error(),
     };
 
+    let lifetimes = match input.lifetimes() {
+        Ok(res) => res,
+        Err(err) => return err.to_compile_error(),
+    };
+
+    let args_lifetimes = match input.args_lifetimes() {
+        Ok(res) => res,
+        Err(err) => return err.to_compile_error(),
+    };
+
     let ret = input.returns();
     let vis = input.vis;
     let args = input.inputs;
@@ -51,7 +61,7 @@ pub fn expand(mut input: HookFnSignature) -> TokenStream {
                 Self(Box::new(hook), weight, default)
             }
 
-            pub fn invoke(#args) -> Vec<#ret> {
+            pub fn invoke #lifetimes (#args_lifetimes) -> Vec<#ret> {
                 let mut out = Vec::new();
                 let mut hooks: Vec<&'static #name> = #krate::inventory::iter::<#name>
                     .into_iter()

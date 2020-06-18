@@ -1,10 +1,13 @@
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
 use syn::token::Paren;
+use syn::visit_mut::VisitMut;
 use syn::{
-    braced, parenthesized, Attribute, BareFnArg, Block, FnArg, Ident, Pat, ReturnType, Token, Type,
-    TypeTuple, Visibility,
+    braced, parenthesized, Attribute, BareFnArg, Block, FnArg, Generics, Ident, Pat, ReturnType,
+    Token, Type, TypeTuple, Visibility,
 };
+
+use crate::lifetime::Lifetimes;
 
 pub struct HookFnSignature {
     pub attrs: Vec<Attribute>,
@@ -58,6 +61,30 @@ impl HookFnSignature {
         }
 
         Ok(args)
+    }
+
+    pub fn args_lifetimes(&self) -> Result<Punctuated<FnArg, Token![,]>> {
+        let mut args = self.inputs.clone();
+        let mut lifetimes = Lifetimes::new("'life");
+
+        for arg in args.iter_mut() {
+            if let FnArg::Typed(arg) = arg {
+                lifetimes.visit_type_mut(&mut arg.ty);
+            }
+        }
+
+        Ok(args)
+    }
+
+    pub fn lifetimes(&self) -> Result<Generics> {
+        let mut args = self.arg_types()?;
+        let mut lifetimes = Lifetimes::new("'life");
+
+        for arg in args.iter_mut() {
+            lifetimes.visit_type_mut(&mut arg.ty);
+        }
+
+        Ok(lifetimes.generics())
     }
 
     pub fn returns(&self) -> Type {
