@@ -1,4 +1,6 @@
 [workspace]
 members = [
   "crates/brace-hook",
+  "crates/brace-hook-gen",
+  "crates/brace-hook-macros",
 ]

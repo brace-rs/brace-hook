@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use syn::Path;
 
 use crate::signature::HookFnSignature;
 
-pub fn expand(mut input: HookFnSignature) -> TokenStream {
-    let krate = match crate::attr::crate_path(&mut input.attrs) {
+pub fn expand(krate: Path, mut input: HookFnSignature) -> TokenStream {
+    let krate = match crate::attr::crate_path(&mut input.attrs, krate) {
         Ok(path) => path,
         Err(err) => return err.to_compile_error(),
     };

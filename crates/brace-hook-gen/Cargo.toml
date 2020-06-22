@@ -1,15 +1,13 @@
 [package]
-name = "brace-hook-macros"
+name = "brace-hook-gen"
 version = "0.1.0"
 authors = ["Daniel Balcomb <daniel.balcomb@gmail.com>"]
-description = "The brace hook procedural macro."
+description = "The brace hook generator."
 repository = "https://github.com/brace-rs/brace-hook"
 license = "MIT OR Apache-2.0"
 edition = "2018"
 
-[lib]
-proc-macro = true
-
 [dependencies]
-brace-hook-gen = { path = "../brace-hook-gen" }
-syn = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = ["visit-mut"] }
